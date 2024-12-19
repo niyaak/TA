@@ -1,0 +1,10 @@
+/anotasi
+/dataset
+/datasetsegmentasi
+/label
+/vidio
+/best_model.h5
+/best_model.keras
+/enet-classes.txt
+/enet-model.net
+/segmentation_model.h5
