@@ -10,7 +10,7 @@ import numpy as np
 tf.config.set_visible_devices([], 'GPU')
 
 # Define paths and parameters
-base_dir = 'D:\Documents\Github\TA\datasetsegmentasi'  # Update dengan path dataset Anda
+base_dir = 'D:\Documents\Github\WahanaSiKecil\segmentasi\datasett'  # Update dengan path dataset Anda
 train_dir = os.path.join(base_dir, 'train')
 val_dir = os.path.join(base_dir, 'valid')
 

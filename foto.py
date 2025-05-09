@@ -1,66 +1,83 @@
-import tensorflow as tf
-from tensorflow.keras.models import load_model
-import cv2
-import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import numpy as np
+import os
+from PIL import Image
 
-# Custom IoU Metric
-def iou_metric(y_true, y_pred):
-    # Convert y_pred to class indices
-    y_pred = tf.argmax(y_pred, axis=-1)  # Convert to class indices
-    y_pred = tf.cast(y_pred, tf.float32)
-    y_true = tf.cast(y_true, tf.float32)
+# ==== Konfigurasi ====
 
-    # Reshape y_true to match y_pred's shape
-    y_true = tf.squeeze(y_true, axis=-1)
 
-    # Calculate intersection and union
-    intersection = tf.reduce_sum(y_true * y_pred)
-    union = tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) - intersection
+# Path dasar ke folder image & label
+base_image_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/3/test'
 
-    return intersection / (union + 1e-10)  # Avoid division by zero
+# Nama file (cukup diganti saja bagian ini)
+file_name = 'image_2502_jpg.rf.6e27482c3f07e4f6f338ace8829512a0'
 
-# Load the trained model
-model = load_model('D:/Documents/Github/TA/segmentation_model.h5', 
-                   custom_objects={'iou_metric': iou_metric})
+# Path lengkap image dan label (label diasumsikan PNG)
+test_image_path = os.path.join(base_image_path, file_name + '.jpg')
+ground_truth_path = os.path.join(base_image_path, file_name + '_mask.png')
 
-# Load and preprocess the image
-image_path = 'D:/Documents/Github/TA/dataset/image_12.jpg'
-img = cv2.imread(image_path)
-img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-# Resize to the input dimensions of the model
-proc_img = cv2.resize(img, (848, 480))  
-proc_img = np.expand_dims(proc_img, axis=0) / 255.0  # Add batch dimension and normalize
+best_model_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba.keras'
 
-# Model prediction
-pred = model.predict(proc_img)
-pred_mask = np.argmax(pred[0], axis=-1)  # Predicted class per pixel
+# Ukuran input model
+img_height, img_width = 256, 448
+num_classes = 3  # Ubah sesuai jumlah kelas Anda
 
-# Define colors for each class
-colors = {
-    0: [0, 0, 0],          # background
-    1: [250, 250, 55],     # indopoint
-    2: [51, 221, 255],     # palang
-    3: [102, 255, 102],    # road
-    4: [255, 0, 204]       # trotoar
-}
+# ==== Fungsi Preprocessing ====
+def preprocess_image(image_path, target_size):
+    image = tf.keras.preprocessing.image.load_img(image_path, target_size=target_size)
+    image_array = tf.keras.preprocessing.image.img_to_array(image) / 255.0
+    return np.expand_dims(image_array, axis=0), image_array  # (1, H, W, C), (H, W, C)
 
-# Create a color-coded output image based on the predicted mask
-output_img = np.zeros((pred_mask.shape[0], pred_mask.shape[1], 3), dtype=np.uint8)
-for class_idx, color in colors.items():
-    output_img[pred_mask == class_idx] = color  # Apply color to each class
+def preprocess_mask(mask_path, target_size):
+    mask = tf.keras.preprocessing.image.load_img(mask_path, target_size=target_size, color_mode='grayscale')
+    mask_array = tf.keras.preprocessing.image.img_to_array(mask).astype(np.uint8)
+    mask_array = np.squeeze(mask_array, axis=-1)  # (H, W)
+    return mask_array
 
-# Display the original image and the color-coded output
-fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-axs[0].imshow(img)
-axs[0].set_title("Original Image")
-axs[0].axis('off')
+def calculate_pixel_accuracy(gt_mask, pred_mask):
+    correct = np.sum(gt_mask == pred_mask)
+    total = gt_mask.size
+    return correct / total
 
-axs[1].imshow(output_img)
-axs[1].set_title("Predicted Segmentation")
-axs[1].axis('off')
+def visualize_result(original_image, predicted_mask, ground_truth_mask, pixel_accuracy):
+    plt.figure(figsize=(18, 6))
 
-# Show and save the final result
-plt.show()
-fig.savefig('D:/Documents/Github/TA/output/output.png', bbox_inches="tight", dpi=300)
+    plt.subplot(1, 3, 1)
+    plt.title("Original Image")
+    plt.imshow(original_image)
+
+    plt.subplot(1, 3, 2)
+    plt.title("Predicted Mask")
+    plt.imshow(predicted_mask, cmap='jet')
+
+    plt.subplot(1, 3, 3)
+    plt.title("Ground Truth Mask")
+    plt.imshow(ground_truth_mask, cmap='jet')
+
+    plt.suptitle(f"Pixel-wise Accuracy: {pixel_accuracy:.4f}", fontsize=14)
+    plt.show()
+
+# ==== Validasi Path ====
+for path in [test_image_path, ground_truth_path, best_model_path]:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Path not found: {path}")
+
+# ==== Load Model dan Proses ====
+print("Loading the best model...")
+model = tf.keras.models.load_model(best_model_path)
+
+print("Preprocessing test image and mask...")
+input_image, original_image = preprocess_image(test_image_path, (img_height, img_width))
+ground_truth_mask = preprocess_mask(ground_truth_path, (img_height, img_width))
+
+print("Running prediction...")
+prediction = model.predict(input_image)
+predicted_mask = np.argmax(prediction[0], axis=-1)  # Shape: (H, W)
+
+pixel_accuracy = calculate_pixel_accuracy(ground_truth_mask, predicted_mask)
+print(f"Pixel-wise Accuracy: {pixel_accuracy:.4f}")
+
+print("Visualizing result...")
+visualize_result(original_image, predicted_mask, ground_truth_mask, pixel_accuracy)

@@ -2,11 +2,11 @@ import cv2
 import os
 
 # Path video input
-video_path = 'D:/Documents/Github/WahanaSiKecil/segmentasi/vidio/demo9.Mov'
+video_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/dataset video/IMG_6022.MOV'
 # Folder untuk menyimpan dataset gambar
-output_folder = 'D:/Documents/Github/WahanaSiKecil/segmentasi/dataset'
+output_folder = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/dataset'
 # Interval frame (misal, setiap 10 frame)
-frame_interval = 20
+frame_interval = 120
 
 # Membuat folder output jika belum ada
 if not os.path.exists(output_folder):
@@ -22,7 +22,7 @@ if not cap.isOpened():
 
 frame_count = 0
 # Mulai dari image_62
-image_count = 3903
+image_count = 5411
 
 # Membaca frame dari video
 while True:
