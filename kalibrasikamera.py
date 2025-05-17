@@ -19,7 +19,7 @@ def click_event(event, x, y, flags, param):
             calibrated = True  # Set agar tidak terus-menerus kalibrasi ulang
 
 # Buka kamera
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     raise IOError("Kamera tidak dapat dibuka.")
 

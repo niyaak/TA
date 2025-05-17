@@ -4,7 +4,7 @@ import time
 import tensorflow as tf
 
 # === Konfigurasi Model ===
-model_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba.keras'
+model_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/cobamodelbagusbismillah.keras'
 model = tf.keras.models.load_model(model_path)
 
 img_height, img_width = 256, 448   # Sesuaikan dengan input model Anda
@@ -21,7 +21,7 @@ input_height = 256
 input_width = 448
 
 # Mulai webcam
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, input_width)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, input_height)
 

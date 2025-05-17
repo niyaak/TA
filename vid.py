@@ -3,9 +3,9 @@ import numpy as np
 import tensorflow as tf
 
 # === Konfigurasi ===
-model_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba.keras'  # Path ke model
+model_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/cobamodelbagusbismillah.keras'  # Path ke model
 input_video_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
-output_video_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/output4.mp4'
+output_video_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/output5.mp4'
 
 img_height, img_width = 256, 448   # Ukuran input model
 
