@@ -11,14 +11,14 @@ from PIL import Image
 base_image_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/3/test'
 
 # Nama file (cukup diganti saja bagian ini)
-file_name = 'image_722_jpg.rf.0b7adfb2a5a8a636d996798a1bef91d5'
+file_name = 'image_3717_jpg.rf.f2e47bfbb5c2589e1474c0fed0c25890' 
 
 # Path lengkap image dan label (label diasumsikan PNG)
 test_image_path = os.path.join(base_image_path, file_name + '.jpg')
 ground_truth_path = os.path.join(base_image_path, file_name + '_mask.png')
 
 
-best_model_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/cobamodelbagusbismillah.keras'
+best_model_path = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba.keras'
 
 # Ukuran input model
 img_height, img_width = 256, 448
