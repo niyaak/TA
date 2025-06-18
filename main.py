@@ -4,51 +4,25 @@ import tensorflow as tf
 import skfuzzy as fuzz
 import skfuzzy.control as ctrl
 import time
-import os 
+import os
+from collections import deque # Import deque untuk histori
 
 # ====== Fuzzy Variable Definitions ======
-# Perluas universe jt untuk mencakup hingga 300 cm atau lebih
-jt_universe_max = 300 
-jt = ctrl.Antecedent(np.arange(0, jt_universe_max + 1, 1), 'jt') # Universe dari 0 sampai 300 cm
+jt = ctrl.Antecedent(np.arange(0, 121, 1), 'jt')
+djt = ctrl.Antecedent(np.arange(-20, 21, 1), 'djt')
+theta = ctrl.Consequent(np.arange(-60, 61, 1), 'theta')
 
-djt = ctrl.Antecedent(np.arange(-20, 21, 1), 'djt') # djt tetap sama
-theta = ctrl.Consequent(np.arange(-60, 61, 1), 'theta') # theta tetap sama
+# Membership Functions for JT (Jarak Tepi)
+jt['td'] = fuzz.trapmf(jt.universe, [0, 0, 10, 20])
+jt['ad'] = fuzz.trimf(jt.universe, [15, 22, 30])
+jt['n']  = fuzz.trapmf(jt.universe, [20, 25, 35, 40]) 
+jt['aj'] = fuzz.trimf(jt.universe, [30, 37, 45])
+jt['tj'] = fuzz.trapmf(jt.universe, [40, 50, 120, 120])
 
-# Membership Functions for JT (Jarak Tepi) - DIUBAH TOTAL
-# Dengan tj = 150-300 cm, dan asumsi normal masih di sekitar 40-90 cm
-
-# jt['td'] (Terlalu Dekat): Tetap relatif dekat dengan 0
-jt['td'] = fuzz.trapmf(jt.universe, [0,   0,  15,  25])     # 0-15 cm sangat dekat, transisi hingga 25 cm
-
-# jt['ad'] (Agak Dekat): Menjembatani 'td' dan 'n'
-jt['ad'] = fuzz.trimf(jt.universe, [20,  30,  40])       # Puncak di 30cm, rentang 20-40 cm
-
-# jt['n'] (Normal): Sesuai diskusi sebelumnya, inti 40-90 cm, dirasakan 35-95 cm
-# Kita sesuaikan sedikit agar ada ruang untuk 'aj' yang lebih jelas sebelum 'tj' baru
-jt['n']  = fuzz.trapmf(jt.universe, [35,  40,  80,  90])  # NORMAL inti 40-80cm, terasa normal 35-90cm
-
-# jt['aj'] (Agak Jauh): Menjembatani 'n' dan 'tj' baru
-# 'n' berakhir di 90. 'tj' akan dimulai sekitar 140-150.
-# Rentang 'aj': misalnya dari 85 cm hingga 145 cm, puncak di tengah.
-jt['aj'] = fuzz.trimf(jt.universe, [85, 115, 145])      # Puncak di 115cm, rentang 85-145cm
-
-# jt['tj'] (Terlalu Jauh): Sesuai permintaan Anda, 150-300 cm
-# Menggunakan trapmf: mulai transisi sebelum 150, full 'tj' di 150-300.
-jt['tj'] = fuzz.trapmf(jt.universe, [140, 150, jt_universe_max, jt_universe_max]) # Mulai dianggap jauh dari 140cm, sepenuhnya jauh dari 150cm ke atas
-
-# --- VERIFIKASI OVERLAP (untuk pengecekan): ---
-# td: [0,0,15,25]
-# ad: [20,30,40]      -> overlap td-ad: 20-25
-# n:  [35,40,80,90]   -> overlap ad-n: 35-40
-# aj: [85,115,145]    -> overlap n-aj: 85-90
-# tj: [140,150,300,300]-> overlap aj-tj: 140-145
-# Semua overlap terlihat baik.
-
-# Membership Functions for dJT & Theta (Tidak Berubah)
+# Membership Functions for dJT & Theta
 djt['dc'] = fuzz.trapmf(djt.universe, [-20, -20, -12, -8]); djt['dl'] = fuzz.trimf(djt.universe, [-10, -6, -2]); djt['s'] = fuzz.trimf(djt.universe, [-3, 0, 3]); djt['jl'] = fuzz.trimf(djt.universe, [2, 6, 10]); djt['jc'] = fuzz.trapmf(djt.universe, [8, 12, 20, 20])
 theta['krt'] = fuzz.trapmf(theta.universe, [-60, -60, -50, -40]); theta['krs'] = fuzz.trimf(theta.universe, [-45, -30, -15]); theta['krr'] = fuzz.trimf(theta.universe, [-20, -10, -2]); theta['l'] = fuzz.trimf(theta.universe, [-5, 0, 5]); theta['knr'] = fuzz.trimf(theta.universe, [2, 10, 20]); theta['kns'] = fuzz.trimf(theta.universe, [15, 30, 45]); theta['knt'] = fuzz.trapmf(theta.universe, [40, 50, 60, 60])
 
-# Rules (Tidak perlu diubah karena nama kategori linguistik tetap sama: td, ad, n, aj, tj)
 rules = [
     ctrl.Rule(jt['td'] & djt['dc'], theta['krt']), ctrl.Rule(jt['td'] & djt['dl'], theta['krs']),
     ctrl.Rule(jt['td'] & djt['s'], theta['krr']), ctrl.Rule(jt['td'] & djt['jl'], theta['l']),
@@ -78,46 +52,51 @@ except Exception as e:
     exit()
 input_size = (448, 256)
 
-INPUT_SOURCE = 0 
-#INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4' # Contoh jika menggunakan video
+INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
+# INPUT_SOURCE = 0
 
 cap = cv2.VideoCapture(INPUT_SOURCE)
 if not cap.isOpened():
     print(f"Error: Tidak bisa membuka sumber video/kamera: {INPUT_SOURCE}")
     exit()
 
-# Hanya set resolusi jika menggunakan webcam
 if isinstance(INPUT_SOURCE, int): 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-# Variabel state sebelumnya
+# --- Variabel state sebelumnya & untuk SMOOTHING ---
 prev_jt_cm_for_djt_calc = None
 actual_previous_theta_output = 0.0
 actual_previous_core_decision_text = "LURUS (Inisialisasi)"
 frames_edge_lost_counter = 0 
+current_gps_navigation_mode = "LURUS" 
+
+THETA_SMOOTHING_WINDOW_SIZE = 5 # Ukuran jendela untuk moving average theta (bisa di-tuning)
+theta_history = deque(maxlen=THETA_SMOOTHING_WINDOW_SIZE)
+# --------------------------------------------------
 
 # Konstanta Kalibrasi & Logika
-CM_PER_PIXEL = 0.14
-MIN_ROAD_PIXELS_TO_OPERATE = 1000 
-MAX_FRAMES_EDGE_LOST_BEFORE_FAR_SEARCH_OR_GPS = 3 
+CM_PER_PIXEL = 0.12
+MIN_ROAD_PIXELS_TO_OPERATE = 50 
+MAX_FRAMES_EDGE_LOST_FALLBACK = 3 
+Y_SAMPLING_START_FACTOR = 1 
+Y_SAMPLING_END_FACTOR = 0.4   
+Y_REF_FOR_JT_FACTOR = 0.85     
+NUM_Y_WINDOWS_STRAIGHT = 3 
+NUM_EDGE_POINTS_CURVE = 7    
+TEPI_CLASS_VALUE = 2 
 
-NORMAL_SEARCH_Y_UPPER_LIMIT_ROW_FACTOR = 0.90 
-FAR_SEARCH_Y_UPPER_LIMIT_ROW_FACTOR = 0.80   
-
-# --- Konfigurasi untuk Menyimpan Video Output ---
-# Dapatkan direktori tempat skrip ini dijalankan untuk menyimpan video output di sana
 try:
     script_dir = os.path.dirname(os.path.abspath(__file__))
-except NameError: # Terjadi jika dijalankan di lingkungan interaktif seperti Jupyter Notebook tanpa __file__
-    script_dir = os.getcwd() # Gunakan direktori kerja saat ini sebagai fallback
-
-output_video_filename = "hasil_navigasi_output.mp4" # Anda bisa ganti nama atau ekstensi (.avi)
+except NameError: 
+    script_dir = os.getcwd() 
+output_video_filename = "hasil_navigasi_smoothed.mp4" 
 output_video_path = os.path.join(script_dir, output_video_filename)
+video_writer = None 
+output_video_fps = 20.0
 
-video_writer = None # Akan diinisialisasi setelah frame pertama dibaca
-output_video_fps = 20.0  # FPS untuk video output (bisa disesuaikan)
-# -----------------------------------------------
+COLOR_SAMPLED_EDGE_POINTS = (255, 200, 100); COLOR_POINTS_FOR_FIT = (0, 255, 0); COLOR_FITTED_LINE = (150, 50, 0)
+RADIUS_SAMPLED_POINTS = 3; RADIUS_POINTS_FOR_FIT = 5; THICKNESS_FITTED_LINE = 2
 
 def get_steering_decision_text(theta_value):
     if theta_value < -35: return "KANAN TAJAM"
@@ -128,50 +107,46 @@ def get_steering_decision_text(theta_value):
     elif theta_value <= 35: return "KIRI SEDANG"
     else: return "KIRI TAJAM"
 
-def find_left_edge_reference(mask, center_x, y_scan_start_row, y_scan_end_row):
-    for y_row in range(y_scan_start_row, y_scan_end_row - 1, -1): 
-        if y_row < 0 or y_row >= mask.shape[0]: continue
-        left_half_row_segment = mask[y_row, :center_x]
-        edge_class2_pixels_x_in_row = np.where(left_half_row_segment == 2)[0]
-        if edge_class2_pixels_x_in_row.size > 0:
-            return edge_class2_pixels_x_in_row.max(), y_row 
-    return None, None
+def get_rightmost_edge_pixel_on_row(mask_segment, y_row, center_x):
+    if y_row < 0 or y_row >= mask_segment.shape[0]: return None
+    left_half_row = mask_segment[y_row, :center_x]
+    edge_pixels_x = np.where(left_half_row == TEPI_CLASS_VALUE)[0] 
+    if edge_pixels_x.size > 0: return edge_pixels_x.max()
+    return None
+
+def fit_line_or_curve(points_x, points_y, mode="LURUS"):
+    order = 1 if mode == "LURUS" else 2; min_points = 2 if mode == "LURUS" else 3
+    if len(points_x) >= min_points:
+        try:
+            if order > 0 and len(set(points_y)) < order + 1 and not (order == 1 and len(set(points_y)) >=1): return None
+            coeffs = np.polyfit(points_y, points_x, order); return np.poly1d(coeffs)
+        except Exception as e: print(f"Peringatan polyfit {mode}: {e}"); return None
+    return None
 
 while True:
     loop_start_time = time.time()
     ret, frame = cap.read()
     if not ret:
-        print("Gagal membaca frame, stream berakhir.")
-        break
+        print("Gagal membaca frame, stream berakhir."); break
 
     orig_h, orig_w = frame.shape[:2]
     center_x_frame = orig_w // 2
 
-    # --- Inisialisasi VideoWriter jika ini frame pertama dan belum diinisialisasi ---
-    if video_writer is None:
-        frame_size_out = (orig_w, orig_h) # Ukuran frame output (lebar, tinggi)
-        # fourcc = cv2.VideoWriter_fourcc(*'XVID') # Untuk .avi
-        # output_video_path_avi = os.path.join(script_dir, "hasil_navigasi_output.avi")
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v') # Untuk .mp4 (lebih umum)
-        # Jika menggunakan path avi di atas, ganti output_video_path di bawah ini
+    if video_writer is None: 
+        frame_size_out = (orig_w, orig_h); fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
         video_writer = cv2.VideoWriter(output_video_path, fourcc, output_video_fps, frame_size_out)
-        if not video_writer.isOpened():
-            print(f"Error: Gagal membuka VideoWriter untuk path: {output_video_path}")
-            video_writer = None # Set ke None agar tidak ada error saat write/release
-        else:
-            print(f"Menyimpan output video ke: {output_video_path} dengan FPS: {output_video_fps}")
-    # --------------------------------------------------------------------------
+        if not video_writer.isOpened(): print(f"Error: Gagal VideoWriter: {output_video_path}"); video_writer = None 
+        else: print(f"Menyimpan video ke: {output_video_path} @{output_video_fps} FPS")
 
-    current_theta_output = actual_previous_theta_output
+    raw_theta_output = actual_previous_theta_output # Theta mentah defaultnya dari frame sebelumnya
     core_decision_for_this_frame = actual_previous_core_decision_text
     status_info_for_decision = ""       
-    display_jt_cm = "N/A"
-    display_djt_cm = "N/A"
-    show_edge_marker = False
-    reference_x_for_vis = -1 
-    vis_y_edge_for_marker = -1
+    display_jt_cm = "N/A"; display_djt_cm = "N/A"
+    show_jt_reference_marker = False 
+    reference_x_for_vis = -1; vis_y_edge_for_marker = -1 
     inference_time_ms = 0.0
-    road_percentage_display = 0.0 # Inisialisasi untuk ditampilkan jika jalan hilang
+    poly_func_for_vis = None 
+    edge_points_x_for_fitting_vis = []; edge_points_y_for_fitting_vis = [] 
     
     mask_resized_to_orig = np.zeros((orig_h, orig_w), dtype=np.uint8)
     input_frame_resized = cv2.resize(frame, input_size)
@@ -185,133 +160,133 @@ while True:
         mask = np.argmax(pred, axis=-1).astype(np.uint8)
         mask_resized_to_orig = cv2.resize(mask, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
     except Exception as e:
-        print(f"Error saat prediksi model: {e}")
-        inference_time_ms = -1.0
+        print(f"Error saat prediksi model: {e}"); inference_time_ms = -1.0
         status_info_for_decision = "(Prediksi Gagal)"
 
-    y_normal_search_upper_limit = int(orig_h * NORMAL_SEARCH_Y_UPPER_LIMIT_ROW_FACTOR)
-    y_far_search_upper_limit = int(orig_h * FAR_SEARCH_Y_UPPER_LIMIT_ROW_FACTOR)
-
-    if np.sum(mask_resized_to_orig == 1) < MIN_ROAD_PIXELS_TO_OPERATE:
-        current_theta_output = 0.0 
-        core_decision_for_this_frame = "LURUS" 
-        status_info_for_decision = "(JALAN SANGAT MINIM/HILANG!)"
-        frames_edge_lost_counter = 0 
-        prev_jt_cm_for_djt_calc = None
+    if np.sum(mask_resized_to_orig == TEPI_CLASS_VALUE) < MIN_ROAD_PIXELS_TO_OPERATE:
+        raw_theta_output = 0.0; core_decision_for_this_frame = "LURUS" 
+        status_info_for_decision = "(TEPI SANGAT MINIM/HILANG!)"
+        frames_edge_lost_counter = 0; prev_jt_cm_for_djt_calc = None
     else:
-        found_reliable_edge_source = False
-        reference_x_abs = -1
-        y_abs_ref = -1
+        edge_points_x_to_fit = []; edge_points_y_to_fit = [] 
+        poly_func = None; found_edge_for_fitting = False
+        y_sampling_start_abs = int(orig_h * Y_SAMPLING_START_FACTOR)
+        y_sampling_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR)
         
-        reference_x_abs, y_abs_ref = find_left_edge_reference(mask_resized_to_orig, center_x_frame, orig_h - 1, y_normal_search_upper_limit)
-
-        if reference_x_abs is not None:
-            found_reliable_edge_source = True
-            frames_edge_lost_counter = 0
-        else:
-            frames_edge_lost_counter += 1
-            if frames_edge_lost_counter > MAX_FRAMES_EDGE_LOST_BEFORE_FAR_SEARCH_OR_GPS:
-                reference_x_abs, y_abs_ref = find_left_edge_reference(mask_resized_to_orig, center_x_frame, y_normal_search_upper_limit - 1, y_far_search_upper_limit)
-                if reference_x_abs is not None:
-                    found_reliable_edge_source = True
-                    frames_edge_lost_counter = 0 
-                    status_info_for_decision = "(Ref: Tepi Jauh)" 
+        # ... (Logika sampling titik dan fitting untuk mendapatkan poly_func tetap sama) ...
+        # ... (Hasilnya adalah poly_func yang valid atau None) ...
+        if y_sampling_start_abs > y_sampling_end_abs:
+            if current_gps_navigation_mode == "LURUS": # ... (logika mode LURUS)
+                num_windows = NUM_Y_WINDOWS_STRAIGHT; y_window_boundaries = np.linspace(y_sampling_end_abs, y_sampling_start_abs, num_windows + 1, dtype=int)
+                for i in range(num_windows):
+                    win_y_top = y_window_boundaries[i]; win_y_bottom = y_window_boundaries[i+1]
+                    if win_y_bottom < win_y_top: continue
+                    best_x_in_window = -1; y_for_best_x_in_window = -1
+                    for y_h in range(win_y_bottom, win_y_top - 1, -1):
+                        if y_h < 0 or y_h >= orig_h: continue
+                        x_edge = get_rightmost_edge_pixel_on_row(mask_resized_to_orig, y_h, center_x_frame)
+                        if x_edge is not None:
+                            if x_edge > best_x_in_window: best_x_in_window = x_edge; y_for_best_x_in_window = y_h
+                    if best_x_in_window != -1: edge_points_x_to_fit.append(best_x_in_window); edge_points_y_to_fit.append(y_for_best_x_in_window)
+                if len(edge_points_x_to_fit) >= 2: poly_func = fit_line_or_curve(edge_points_x_to_fit, edge_points_y_to_fit, "LURUS")
+            elif "BELOK" in current_gps_navigation_mode: # ... (logika mode BELOK)
+                y_horizons = np.linspace(y_sampling_start_abs, y_sampling_end_abs, NUM_EDGE_POINTS_CURVE, dtype=int)
+                for y_h in y_horizons:
+                    x_edge = get_rightmost_edge_pixel_on_row(mask_resized_to_orig, y_h, center_x_frame)
+                    if x_edge is not None: edge_points_x_to_fit.append(x_edge); edge_points_y_to_fit.append(y_h)
+                if len(edge_points_x_to_fit) >= 3: poly_func = fit_line_or_curve(edge_points_x_to_fit, edge_points_y_to_fit, "BELOK")
         
-        if found_reliable_edge_source:
-            reference_x_for_vis = reference_x_abs
-            vis_y_edge_for_marker = y_abs_ref
-            jt_pixel_val = center_x_frame - reference_x_abs
-            jt_cm_val = int(jt_pixel_val * CM_PER_PIXEL)
-            djt_cm_val = 0
-            if prev_jt_cm_for_djt_calc is not None:
-                djt_cm_val = jt_cm_val - prev_jt_cm_for_djt_calc
-            prev_jt_cm_for_djt_calc = jt_cm_val
+        if poly_func is not None:
+            found_edge_for_fitting = True; frames_edge_lost_counter = 0; poly_func_for_vis = poly_func
+            edge_points_x_for_fitting_vis = list(edge_points_x_to_fit); edge_points_y_for_fitting_vis = list(edge_points_y_to_fit)
+            y_ref_for_jt_abs = int(orig_h * Y_REF_FOR_JT_FACTOR)
             try:
+                reference_x_abs = int(poly_func(y_ref_for_jt_abs));
+                if not (0 <= reference_x_abs < center_x_frame): raise ValueError("Ref x out of bounds")
+                reference_x_for_vis = reference_x_abs; vis_y_edge_for_marker = y_ref_for_jt_abs
+                jt_pixel_val = center_x_frame - reference_x_abs; jt_cm_val = int(jt_pixel_val * CM_PER_PIXEL)
+                djt_cm_val = 0
+                if prev_jt_cm_for_djt_calc is not None: djt_cm_val = jt_cm_val - prev_jt_cm_for_djt_calc
+                prev_jt_cm_for_djt_calc = jt_cm_val
                 clipped_jt_cm = np.clip(jt_cm_val, jt.universe.min(), jt.universe.max())
                 clipped_djt_cm = np.clip(djt_cm_val, djt.universe.min(), djt.universe.max())
-                fuzzy_sim.input['jt'] = clipped_jt_cm
-                fuzzy_sim.input['djt'] = clipped_djt_cm
-                fuzzy_sim.compute()
-                current_theta_output = fuzzy_sim.output['theta']
-                core_decision_for_this_frame = get_steering_decision_text(current_theta_output)
-                if not status_info_for_decision : 
-                     status_info_for_decision = "" 
-            except Exception as e:
-                print(f"[Fuzzy ERROR] jt={jt_cm_val}, djt={djt_cm_val} -> {e}")
-                current_theta_output = actual_previous_theta_output 
-                core_decision_for_this_frame = actual_previous_core_decision_text
-                status_info_for_decision = "(Fuzzy Error)"
-            display_jt_cm = f"{jt_cm_val:.1f}"
-            display_djt_cm = f"{djt_cm_val:.1f}"
-            show_edge_marker = True
-        else: 
-            if frames_edge_lost_counter <= MAX_FRAMES_EDGE_LOST_BEFORE_FAR_SEARCH_OR_GPS:
+                fuzzy_sim.input['jt'] = clipped_jt_cm; fuzzy_sim.input['djt'] = clipped_djt_cm
+                fuzzy_sim.compute(); raw_theta_output = fuzzy_sim.output['theta']
+                status_info_for_decision = f"(Ref: {'Garis(F)' if current_gps_navigation_mode == 'LURUS' else 'Kurva'})"
+                display_jt_cm = f"{jt_cm_val:.1f}"; display_djt_cm = f"{djt_cm_val:.1f}"
+                show_jt_reference_marker = True
+            except Exception as e: 
+                print(f"Error saat proses fitting/fuzzy: {e}"); status_info_for_decision = "(Error Proses Tepi)"; 
+                prev_jt_cm_for_djt_calc = None; found_edge_for_fitting = False
+        
+        if not found_edge_for_fitting:
+            frames_edge_lost_counter += 1
+            if frames_edge_lost_counter <= MAX_FRAMES_EDGE_LOST_FALLBACK:
                 status_info_for_decision = f"(TEPI HILANG SEMENTARA ({frames_edge_lost_counter}))"
-            else: 
-                current_theta_output = 0.0 
-                core_decision_for_this_frame = "LURUS" 
-                status_info_for_decision = "(NAVIGASI PETA AKTIF)"
-            prev_jt_cm_for_djt_calc = None 
-            display_jt_cm = "N/A"
-            display_djt_cm = "N/A (Tepi Hilang)"
-            show_edge_marker = False
-            reference_x_for_vis = -1
-            
-    current_decision_text = core_decision_for_this_frame
-    if status_info_for_decision:
-        current_decision_text += f" {status_info_for_decision}"
+            else:
+                raw_theta_output = 0.0; core_decision_for_this_frame = "LURUS" # Set theta mentah ke 0
+                status_info_for_decision = "(NAVIGASI PETA (GPS) AKTIF)"
+            prev_jt_cm_for_djt_calc = None; display_jt_cm = "N/A"; display_djt_cm = "N/A (Tepi Hilang)"
+            show_jt_reference_marker = False; reference_x_for_vis = -1
+            edge_points_x_for_fitting_vis = []; edge_points_y_for_fitting_vis = []
+    
+    # --- TERAPKAN MOVING AVERAGE (SMOOTHING) PADA THETA ---
+    theta_history.append(raw_theta_output) # Tambahkan theta mentah (sebelum dihaluskan) ke histori
+    smoothed_theta_output = np.mean(theta_history) # Hitung rata-rata dari histori
+    
+    # Gunakan theta yang sudah dihaluskan untuk keputusan akhir dan state berikutnya
+    current_theta_output = smoothed_theta_output 
+    core_decision_for_this_frame = get_steering_decision_text(current_theta_output)
+    # ----------------------------------------------------
 
-    actual_previous_theta_output = current_theta_output
-    actual_previous_core_decision_text = core_decision_for_this_frame
+    current_decision_text = core_decision_for_this_frame
+    if status_info_for_decision: current_decision_text += f" {status_info_for_decision}"
+    actual_previous_theta_output = current_theta_output # Simpan yang sudah dihaluskan
+    actual_previous_core_decision_text = core_decision_for_this_frame # Simpan teks dari theta halus
 
     # ====== Visualisasi ======
     overlay = frame.copy()
-    cv2.line(overlay, (center_x_frame, 0), (center_x_frame, orig_h), (255, 0, 0), 1)
-    cv2.line(overlay, (0, y_normal_search_upper_limit), (center_x_frame, y_normal_search_upper_limit), (0, 255, 125), 1)
-    cv2.putText(overlay, "Batas Prio 1 (Dekat)", (5, y_normal_search_upper_limit - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 125),1)
-    if y_far_search_upper_limit < y_normal_search_upper_limit :
-        cv2.line(overlay, (0, y_far_search_upper_limit), (center_x_frame, y_far_search_upper_limit), (255, 125, 0), 1)
-        cv2.putText(overlay, "Batas Prio 2 (Jauh)", (5, y_far_search_upper_limit - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 125, 0),1)
-
+    # ... (sisa kode visualisasi tetap sama seperti sebelumnya) ...
+    # (menggambar color_mask, titik fitting hijau, garis fitting biru tua, titik referensi kuning/cyan)
+    cv2.line(overlay, (center_x_frame, 0), (center_x_frame, orig_h), (255, 0, 0), 1); cv2.putText(overlay, f"Mode GPS: {current_gps_navigation_mode}", (orig_w - 250, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,0,255), 2)
     y_offset = 30; info_text_size = 0.6; info_font = cv2.FONT_HERSHEY_SIMPLEX
     cv2.putText(overlay, f"JT: {display_jt_cm} cm", (10, y_offset), info_font, info_text_size, (0, 255, 255), 2); y_offset += 25
     cv2.putText(overlay, f"dJT: {display_djt_cm} cm/f", (10, y_offset), info_font, info_text_size, (0, 255, 255), 2); y_offset += 25
     cv2.putText(overlay, f"Theta: {current_theta_output:.1f} deg", (10, y_offset), info_font, info_text_size, (0, 255, 255), 2); y_offset += 30
-    
-    keputusan_color = (0, 255, 0) 
-    if "BERHENTI" in core_decision_for_this_frame or "SANGAT MINIM" in status_info_for_decision: 
-        keputusan_color = (0, 0, 255) 
-    elif "HILANG" in status_info_for_decision or "Error" in status_info_for_decision or "NAVIGASI PETA" in status_info_for_decision: 
-        keputusan_color = (0, 255, 255) 
+    keputusan_color = (0, 255, 0)
+    if "BERHENTI" in core_decision_for_this_frame or "SANGAT MINIM" in status_info_for_decision: keputusan_color = (0, 0, 255) 
+    elif "HILANG" in status_info_for_decision or "Error" in status_info_for_decision or "NAVIGASI PETA" in status_info_for_decision: keputusan_color = (0, 255, 255) 
     cv2.putText(overlay, f"KEPUTUSAN: {current_decision_text}", (10, y_offset), info_font, 0.7, keputusan_color, 2); y_offset += 25
     cv2.putText(overlay, f"Infer. Time: {inference_time_ms:.1f} ms", (10, y_offset), info_font, info_text_size-0.1, (200, 200, 0), 1); y_offset += 20
-    
-    loop_end_time = time.time()
-    time_diff_for_fps = loop_end_time - loop_start_time
+    loop_end_time = time.time(); time_diff_for_fps = loop_end_time - loop_start_time
     fps = 1.0 / time_diff_for_fps if time_diff_for_fps > 0 else 0
     cv2.putText(overlay, f"FPS: {fps:.1f}", (10, y_offset), info_font, info_text_size-0.1, (200, 200, 0), 1); y_offset += 20
-
-    color_mask = np.zeros_like(frame); color_mask[mask_resized_to_orig == 1] = [0, 255, 0]; color_mask[mask_resized_to_orig == 2] = [0, 0, 255]
-
-    if show_edge_marker and reference_x_for_vis != -1 and vis_y_edge_for_marker != -1:
-        cv2.circle(overlay, (reference_x_for_vis, vis_y_edge_for_marker), 7, (0, 255, 255), -1)
-        cv2.line(overlay, (center_x_frame, vis_y_edge_for_marker), (reference_x_for_vis, vis_y_edge_for_marker), (255,255,0), 1)
-
+    color_mask = np.zeros_like(frame); color_mask[mask_resized_to_orig == TEPI_CLASS_VALUE] = [0, 0, 255]
+    if len(edge_points_x_for_fitting_vis) > 0:
+        for i in range(len(edge_points_x_for_fitting_vis)): cv2.circle(overlay, (edge_points_x_for_fitting_vis[i], edge_points_y_for_fitting_vis[i]), RADIUS_POINTS_FOR_FIT, COLOR_POINTS_FOR_FIT, -1)
+    if found_edge_for_fitting and poly_func_for_vis is not None:
+        y_draw_line_start_abs = int(orig_h * 0.98); y_draw_line_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR) 
+        prev_x_p_line, prev_y_p_line = -1, -1; LINE_SEGMENT_STEP_Y = 1 
+        for y_p in range(y_draw_line_start_abs, y_draw_line_end_abs -1 , -LINE_SEGMENT_STEP_Y): 
+            if y_p < 0 or y_p >= orig_h : continue 
+            try:
+                x_p = int(poly_func_for_vis(y_p)) 
+                if 0 <= x_p < center_x_frame: 
+                    if prev_x_p_line != -1 : cv2.line(overlay, (prev_x_p_line, prev_y_p_line), (x_p, y_p), COLOR_FITTED_LINE, THICKNESS_FITTED_LINE)
+                    prev_x_p_line = x_p; prev_y_p_line = y_p
+                else: prev_x_p_line, prev_y_p_line = -1,-1
+            except: prev_x_p_line, prev_y_p_line = -1,-1; pass 
+    if show_jt_reference_marker and reference_x_for_vis != -1 and vis_y_edge_for_marker != -1:
+         cv2.circle(overlay, (reference_x_for_vis, vis_y_edge_for_marker), 7, (0, 255, 255), -1) 
+         cv2.line(overlay, (center_x_frame, vis_y_edge_for_marker), (reference_x_for_vis, vis_y_edge_for_marker), (255,255,0), 1)
     seg_overlay = cv2.addWeighted(overlay, 0.7, color_mask, 0.3, 0)
-    
-    # --- Tulis frame ke video output ---
-    if video_writer is not None and video_writer.isOpened():
-        video_writer.write(seg_overlay)
-    # ------------------------------------
-
+    if video_writer is not None and video_writer.isOpened(): video_writer.write(seg_overlay)
     cv2.imshow("Segmentasi & Navigasi Fuzzy", seg_overlay)
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'): break
+    elif key == ord('l'): current_gps_navigation_mode = "LURUS"; print("Mode GPS: LURUS")
+    elif key == ord('b'): current_gps_navigation_mode = "BELOK"; print("Mode GPS: BELOK")
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-# --- Setelah loop selesai ---
 cap.release()
-if video_writer is not None and video_writer.isOpened(): # Pastikan ada dan terbuka sebelum release
-    video_writer.release()
-    print(f"Video output disimpan sebagai: {output_video_path}")
+if video_writer is not None and video_writer.isOpened(): video_writer.release(); print(f"Video output disimpan: {output_video_path}")
 cv2.destroyAllWindows()

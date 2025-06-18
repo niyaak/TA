@@ -43,16 +43,18 @@ rules = [
 fuzzy_ctrl = ctrl.ControlSystem(rules)
 fuzzy_sim = ctrl.ControlSystemSimulation(fuzzy_ctrl)
 
-MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba.keras'
+MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba2.keras'
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
     print(f"Model {MODEL_PATH} berhasil dimuat.")
 except Exception as e:
     print(f"Error loading model: {e}")
     exit()
-input_size = (448, 256)
+input_size = (384, 224)
 
-INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
+#INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
+INPUT_SOURCE = 0
+
 cap = cv2.VideoCapture(INPUT_SOURCE)
 if not cap.isOpened():
     print(f"Error: Tidak bisa membuka sumber video/kamera: {INPUT_SOURCE}")
@@ -72,7 +74,7 @@ THETA_SMOOTHING_WINDOW_SIZE = 5
 theta_history = deque(maxlen=THETA_SMOOTHING_WINDOW_SIZE)
 
 # --- NEW: Konstanta untuk Jalur Target & Adaptasi Tikungan ---
-DESIRED_LANE_WIDTH_CM = 125.0 # Lebar lajur yang diinginkan dalam cm (misal: 2.8 meter)
+DESIRED_LANE_WIDTH_CM = 69.0 # Lebar lajur yang diinginkan dalam cm (misal: 2.8 meter)
 FUZZY_SYSTEM_NORMAL_JT_CM = 30.0 # Nilai 'normal' untuk jt yang ditargetkan oleh sistem fuzzy (sesuai definisi MF 'n')
 SHARP_CURVE_COEFF_A_THRESHOLD = 0.0004 # Ambang batas untuk koefisien 'a' dari polyfit orde 2 untuk dianggap tikungan tajam
 SHARP_CURVE_ADJUSTMENT_FACTOR = 0.6   # Faktor pengurang offset saat tikungan tajam (target lebih dekat ke dalam)
@@ -83,7 +85,7 @@ MIN_ROAD_PIXELS_TO_OPERATE = 50
 MAX_FRAMES_EDGE_LOST_FALLBACK = 3
 Y_SAMPLING_START_FACTOR = 1
 Y_SAMPLING_END_FACTOR = 0.5
-Y_REF_FOR_JT_FACTOR = 0.85
+Y_REF_FOR_JT_FACTOR = 0.98
 NUM_Y_WINDOWS_STRAIGHT = 3
 NUM_EDGE_POINTS_CURVE = 7
 TEPI_CLASS_VALUE = 2
