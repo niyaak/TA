@@ -6,8 +6,8 @@ import skfuzzy.control as ctrl
 import time
 import os
 from collections import deque
-import csv  # BARU: Impor pustaka CSV
-import datetime # BARU: Impor pustaka datetime
+import openpyxl # <-- Tambahkan import ini
+from datetime import datetime # <-- Tambahkan import ini
 
 # ====== Fuzzy Variable Definitions ======
 jt = ctrl.Antecedent(np.arange(0, 121, 1), 'jt')
@@ -45,14 +45,23 @@ rules = [
 fuzzy_ctrl = ctrl.ControlSystem(rules)
 fuzzy_sim = ctrl.ControlSystemSimulation(fuzzy_ctrl)
 
-MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba2.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/effnet.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic1024.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic256.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic512.keras'
+MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobileunet.keras'
+
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobilenet2.keras'
+
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
     print(f"Model {MODEL_PATH} berhasil dimuat.")
 except Exception as e:
     print(f"Error loading model: {e}")
     exit()
-input_size = (384, 224)
+
+input_size = (384, 224 )
+#input_size = (448, 256 )
 
 INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
 #INPUT_SOURCE = 0
@@ -75,74 +84,73 @@ current_gps_navigation_mode = "LURUS"
 THETA_SMOOTHING_WINDOW_SIZE = 5
 theta_history = deque(maxlen=THETA_SMOOTHING_WINDOW_SIZE)
 
-# --- Variabel validasi konsistensi ---
+# Variabel untuk validasi konsistensi tepi jalan
 last_stable_reference_x = None
 outlier_detection_counter = 0
 OUTLIER_X_JUMP_THRESHOLD_PX = 60
 OUTLIER_CONFIRMATION_FRAMES = 4
 
-# --- Konstanta ---
-DESIRED_LANE_WIDTH_CM = 69.0
+# --- Konstanta untuk Jalur Target & Adaptasi Tikungan ---
+DESIRED_LANE_WIDTH_CM = 123.0
 FUZZY_SYSTEM_NORMAL_JT_CM = 30.0
 SHARP_CURVE_COEFF_A_THRESHOLD = 0.0004
 SHARP_CURVE_ADJUSTMENT_FACTOR = 0.6
-CM_PER_PIXEL = 0.12
+
+# --- Konstanta Kalibrasi & Logika ---
+CM_PER_PIXEL = 0.26
 MIN_ROAD_PIXELS_TO_OPERATE = 50
 MAX_FRAMES_EDGE_LOST_FALLBACK = 3
 Y_SAMPLING_START_FACTOR = 1
-Y_SAMPLING_END_FACTOR = 0.5
-Y_REF_FOR_JT_FACTOR = 0.98
+Y_SAMPLING_END_FACTOR = 0.55
+Y_REF_FOR_JT_FACTOR = 0.95
 NUM_Y_WINDOWS_STRAIGHT = 3
 NUM_EDGE_POINTS_CURVE = 7
 TEPI_CLASS_VALUE = 2
 
-# --- Video Output Setup ---
+# --- NEW: Folder & Penamaan File Output Setup ---
 try:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 except NameError:
     script_dir = os.getcwd()
-output_video_filename = "hasil_navigasi_adaptif_stabil.mp4"
-output_video_path = os.path.join(script_dir, output_video_filename)
-video_writer = None
-output_video_fps = 20.0
+
+# Buat folder output jika belum ada
+log_output_dir = os.path.join(script_dir, "hasil_log")
+video_output_dir = os.path.join(script_dir, "hasilvidio")
+os.makedirs(log_output_dir, exist_ok=True)
+os.makedirs(video_output_dir, exist_ok=True)
+
+# Buat nama file unik berbasis timestamp
+timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+log_filename = f"log_data_{timestamp_str}.xlsx"
+output_video_overlay_filename = f"output_overlay_{timestamp_str}.mp4"
+output_video_original_filename = f"output_original_{timestamp_str}.mp4"
+
+log_filepath = os.path.join(log_output_dir, log_filename)
+output_video_overlay_path = os.path.join(video_output_dir, output_video_overlay_filename)
+output_video_original_path = os.path.join(video_output_dir, output_video_original_filename)
+
+# --- NEW: Inisialisasi Logging Excel ---
+workbook = openpyxl.Workbook()
+sheet = workbook.active
+sheet.title = "Frame Data Log"
+# Tulis header ke file excel
+excel_headers = [
+    "Timestamp", "Frame", "FPS", "Infer_Time_ms", "JT_cm", "dJT_cm_per_frame",
+    "JT_for_Fuzzy", "Theta_Raw", "Theta_Smoothed", "Keputusan_Inti", "Status_Info", "Keputusan_Final"
+]
+sheet.append(excel_headers)
+print(f"Logging data ke: {log_filepath}")
+
+
+# --- Video Output Setup ---
+video_writer_overlay = None
+video_writer_original = None # Writer baru untuk video original
+output_video_fps = 10
 
 # --- Konstanta Visualisasi ---
 COLOR_SAMPLED_EDGE_POINTS = (255, 200, 100); COLOR_POINTS_FOR_FIT = (0, 255, 0); COLOR_FITTED_LINE = (150, 50, 0)
 RADIUS_SAMPLED_POINTS = 3; RADIUS_POINTS_FOR_FIT = 5; THICKNESS_FITTED_LINE = 2
 COLOR_TARGET_PATH = (0, 255, 112)
-
-# BARU: Setup Logging CSV
-IS_LOGGING_ENABLED = True
-LOG_DIR = "hasiluji"
-log_file = None
-csv_writer = None
-
-if IS_LOGGING_ENABLED:
-    try:
-        os.makedirs(LOG_DIR, exist_ok=True)
-        # Membuat nama skenario dari nama file input
-        if isinstance(INPUT_SOURCE, str):
-            scenario_name = os.path.splitext(os.path.basename(INPUT_SOURCE))[0]
-        else:
-            scenario_name = f"webcam_{datetime.datetime.now().strftime('%Y%m%d')}"
-        
-        timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_filepath = os.path.join(LOG_DIR, f"log_{scenario_name}_{timestamp_str}.csv")
-        
-        log_file = open(log_filepath, 'w', newline='', encoding='utf-8')
-        
-        log_header = [
-            "scenario", "timestamp_ms", "frame_latency_ms", "fps", 
-            "theta_output", "decision", "jt_cm", "djt_cm"
-        ]
-        csv_writer = csv.DictWriter(log_file, fieldnames=log_header)
-        csv_writer.writeheader()
-        
-        print(f"Logging diaktifkan. Menyimpan log ke: {log_filepath}")
-    except Exception as e:
-        print(f"Error saat memulai logging: {e}")
-        IS_LOGGING_ENABLED = False
-
 
 def get_steering_decision_text(theta_value):
     if theta_value < -35: return "KANAN TAJAM"
@@ -169,30 +177,42 @@ def fit_line_or_curve(points_x, points_y, mode="LURUS"):
         except Exception as e: print(f"Peringatan polyfit {mode}: {e}"); return None
     return None
 
-# --- Main Loop ---
+frame_count = 0 # Counter untuk frame
 while True:
     loop_start_time = time.time()
     ret, frame = cap.read()
     if not ret:
         print("Gagal membaca frame, stream berakhir."); break
-
+    
+    frame_count += 1
     orig_h, orig_w = frame.shape[:2]
     center_x_frame = orig_w // 2
 
-    if video_writer is None:
+    # Inisialisasi Video Writers saat frame pertama didapat
+    if video_writer_overlay is None:
         frame_size_out = (orig_w, orig_h); fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        video_writer = cv2.VideoWriter(output_video_path, fourcc, output_video_fps, frame_size_out)
-        if not video_writer.isOpened(): print(f"Error: Gagal VideoWriter: {output_video_path}"); video_writer = None
-        else: print(f"Menyimpan video ke: {output_video_path} @{output_video_fps} FPS")
+        
+        # Writer untuk video dengan overlay
+        video_writer_overlay = cv2.VideoWriter(output_video_overlay_path, fourcc, output_video_fps, frame_size_out)
+        if not video_writer_overlay.isOpened(): 
+            print(f"Error: Gagal VideoWriter (Overlay): {output_video_overlay_path}"); video_writer_overlay = None
+        else: 
+            print(f"Menyimpan video overlay ke: {output_video_overlay_path} @{output_video_fps} FPS")
+
+        # Writer untuk video original
+        video_writer_original = cv2.VideoWriter(output_video_original_path, fourcc, output_video_fps, frame_size_out)
+        if not video_writer_original.isOpened():
+             print(f"Error: Gagal VideoWriter (Original): {output_video_original_path}"); video_writer_original = None
+        else:
+            print(f"Menyimpan video original ke: {output_video_original_path} @{output_video_fps} FPS")
+
 
     # --- Inisialisasi variabel untuk frame ini ---
     raw_theta_output = actual_previous_theta_output
     core_decision_for_this_frame = actual_previous_core_decision_text
     status_info_for_decision = ""
     display_jt_cm = "N/A"; display_djt_cm = "N/A"
-    # MODIFIKASI: Inisialisasi variabel numerik untuk logging
-    measured_jt_for_log = np.nan 
-    djt_cm_for_log = np.nan
+    jt_for_fuzzy_input_log = None; djt_cm_val_log = None; measured_jt_cm_log = None # Variabel log
     show_jt_reference_marker = False
     reference_x_for_vis = -1; vis_y_edge_for_marker = -1
     inference_time_ms = 0.0
@@ -223,7 +243,6 @@ while True:
         status_info_for_decision = "(TEPI SANGAT MINIM/HILANG!)"
         frames_edge_lost_counter = 0; prev_jt_cm_for_djt_calc = None
     else:
-        # (Logika deteksi dan fitting tepi jalan tetap sama...)
         edge_points_x_to_fit = []; edge_points_y_to_fit = []
         poly_func = None; found_edge_for_fitting = False
         y_sampling_start_abs = int(orig_h * Y_SAMPLING_START_FACTOR)
@@ -287,7 +306,6 @@ while True:
                 status_info_for_decision = "(Error Validasi Tepi)"
             
             if is_detection_valid_this_frame:
-                # (Logika adaptif dan fuzzy tetap sama...)
                 if current_gps_navigation_mode == "BELOK" and len(poly_func.coeffs) == 3:
                     coeff_a = poly_func.coeffs[0]
                     if abs(coeff_a) > SHARP_CURVE_COEFF_A_THRESHOLD:
@@ -303,17 +321,17 @@ while True:
                     vis_y_edge_for_marker = y_ref_for_jt_abs
                     
                     measured_jt_cm = (center_x_frame - reference_x_abs) * CM_PER_PIXEL
+                    measured_jt_cm_log = measured_jt_cm # Simpan untuk log
                     djt_cm_val = 0
                     if prev_jt_cm_for_djt_calc is not None:
                         djt_cm_val = measured_jt_cm - prev_jt_cm_for_djt_calc
+                    
+                    djt_cm_val_log = djt_cm_val # Simpan untuk log
                     prev_jt_cm_for_djt_calc = measured_jt_cm
-
-                    # MODIFIKASI: Simpan nilai untuk logging
-                    measured_jt_for_log = measured_jt_cm
-                    djt_cm_for_log = djt_cm_val
 
                     offset_correction = current_target_offset_cm - FUZZY_SYSTEM_NORMAL_JT_CM
                     jt_for_fuzzy_input = measured_jt_cm - offset_correction
+                    jt_for_fuzzy_input_log = jt_for_fuzzy_input # Simpan untuk log
 
                     clipped_jt_cm = np.clip(jt_for_fuzzy_input, jt.universe.min(), jt.universe.max())
                     clipped_djt_cm = np.clip(djt_cm_val, djt.universe.min(), djt.universe.max())
@@ -351,7 +369,7 @@ while True:
             show_jt_reference_marker = False; reference_x_for_vis = -1
             edge_points_x_for_fitting_vis = []; edge_points_y_for_fitting_vis = []
 
-    # --- Terapkan Smoothing & Keputusan Akhir ---
+    # --- Terapkan Moving Average (Smoothing) pada Theta ---
     theta_history.append(raw_theta_output)
     smoothed_theta_output = np.mean(theta_history)
     current_theta_output = smoothed_theta_output
@@ -362,26 +380,7 @@ while True:
     actual_previous_theta_output = current_theta_output
     actual_previous_core_decision_text = core_decision_for_this_frame
 
-    # BARU: Logika penulisan data ke CSV
-    if IS_LOGGING_ENABLED and csv_writer is not None:
-        frame_latency_ms = (time.time() - loop_start_time) * 1000
-        log_entry = {
-            "scenario": scenario_name,
-            "timestamp_ms": int(time.time() * 1000),
-            "frame_latency_ms": frame_latency_ms,
-            "fps": 1000 / frame_latency_ms if frame_latency_ms > 0 else 0,
-            "theta_output": current_theta_output,
-            "decision": core_decision_for_this_frame,
-            "jt_cm": measured_jt_for_log,
-            "djt_cm": djt_cm_for_log
-        }
-        try:
-            csv_writer.writerow(log_entry)
-        except Exception as e:
-            print(f"Gagal menulis log: {e}")
-
     # ====== Visualisasi ======
-    # (Logika visualisasi tetap sama...)
     overlay = frame.copy()
     cv2.line(overlay, (center_x_frame, 0), (center_x_frame, orig_h), (255, 0, 0), 1); cv2.putText(overlay, f"Mode GPS: {current_gps_navigation_mode}", (orig_w - 250, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,0,255), 2)
     y_offset = 30; info_text_size = 0.6; info_font = cv2.FONT_HERSHEY_SIMPLEX
@@ -397,10 +396,8 @@ while True:
     elif "Tajam" in status_info_for_decision: keputusan_color = (0, 165, 255)
     cv2.putText(overlay, f"KEPUTUSAN: {current_decision_text}", (10, y_offset), info_font, 0.7, keputusan_color, 2); y_offset += 25
     cv2.putText(overlay, f"Infer. Time: {inference_time_ms:.1f} ms", (10, y_offset), info_font, info_text_size-0.1, (200, 200, 0), 1); y_offset += 20
-    
-    # MODIFIKASI: Menghitung FPS dari latensi total frame
-    total_frame_time_s = time.time() - loop_start_time
-    fps = 1.0 / total_frame_time_s if total_frame_time_s > 0 else 0
+    loop_end_time = time.time(); time_diff_for_fps = loop_end_time - loop_start_time
+    fps = 1.0 / time_diff_for_fps if time_diff_for_fps > 0 else 0
     cv2.putText(overlay, f"FPS: {fps:.1f}", (10, y_offset), info_font, info_text_size-0.1, (200, 200, 0), 1); y_offset += 20
     
     color_mask = np.zeros_like(frame); color_mask[mask_resized_to_orig == TEPI_CLASS_VALUE] = [0, 0, 255]
@@ -442,7 +439,24 @@ while True:
     
     seg_overlay = cv2.addWeighted(overlay, 0.7, color_mask, 0.3, 0)
     
-    if video_writer is not None and video_writer.isOpened(): video_writer.write(seg_overlay)
+    # --- NEW: Logging Data dan Menulis Video ---
+    current_timestamp_log = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    log_data = [
+        current_timestamp_log, frame_count, f"{fps:.1f}", f"{inference_time_ms:.1f}",
+        f"{measured_jt_cm_log:.2f}" if measured_jt_cm_log is not None else "N/A",
+        f"{djt_cm_val_log:.2f}" if djt_cm_val_log is not None else "N/A",
+        f"{jt_for_fuzzy_input_log:.2f}" if jt_for_fuzzy_input_log is not None else "N/A",
+        f"{raw_theta_output:.2f}", f"{current_theta_output:.2f}",
+        core_decision_for_this_frame, status_info_for_decision, current_decision_text
+    ]
+    sheet.append(log_data)
+    
+    if video_writer_original is not None and video_writer_original.isOpened():
+        video_writer_original.write(frame) # Tulis frame original
+        
+    if video_writer_overlay is not None and video_writer_overlay.isOpened():
+        video_writer_overlay.write(seg_overlay) # Tulis frame dengan overlay
+
     cv2.imshow("Segmentasi & Navigasi Fuzzy Adaptif", seg_overlay)
     
     key = cv2.waitKey(1) & 0xFF
@@ -450,16 +464,18 @@ while True:
     elif key == ord('l'): current_gps_navigation_mode = "LURUS"; print("Mode GPS: LURUS")
     elif key == ord('b'): current_gps_navigation_mode = "BELOK"; print("Mode GPS: BELOK")
 
-# --- Cleanup ---
+# --- Finalisasi ---
 cap.release()
-if video_writer is not None and video_writer.isOpened(): video_writer.release(); print(f"Video output disimpan: {output_video_path}")
+# Simpan file log Excel
+workbook.save(log_filepath)
+print(f"File log Excel disimpan: {log_filepath}")
 
-# BARU: Tutup file CSV
-if log_file is not None:
-    try:
-        log_file.close()
-        print("File log berhasil ditutup.")
-    except Exception as e:
-        print(f"Error saat menutup file log: {e}")
-
+# Release kedua video writer
+if video_writer_overlay is not None and video_writer_overlay.isOpened():
+    video_writer_overlay.release()
+    print(f"Video output (overlay) disimpan: {output_video_overlay_path}")
+if video_writer_original is not None and video_writer_original.isOpened():
+    video_writer_original.release()
+    print(f"Video output (original) disimpan: {output_video_original_path}")
+    
 cv2.destroyAllWindows()

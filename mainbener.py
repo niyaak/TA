@@ -43,14 +43,22 @@ rules = [
 fuzzy_ctrl = ctrl.ControlSystem(rules)
 fuzzy_sim = ctrl.ControlSystemSimulation(fuzzy_ctrl)
 
-MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/datasetbener3coba2.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/effnet.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic1024.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic256.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic512.keras'
+MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobileunet.keras'
+
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobilenet2.keras'
+
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
     print(f"Model {MODEL_PATH} berhasil dimuat.")
 except Exception as e:
     print(f"Error loading model: {e}")
     exit()
-input_size = (384, 224)
+input_size = (384, 224 )
+#input_size = (448, 256 )
 
 INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
 #INPUT_SOURCE = 0
@@ -80,18 +88,18 @@ OUTLIER_X_JUMP_THRESHOLD_PX = 60 # Ambang batas lompatan posisi X dalam pixel (p
 OUTLIER_CONFIRMATION_FRAMES = 4   # Jumlah frame konfirmasi anomali
 
 # --- NEW: Konstanta untuk Jalur Target & Adaptasi Tikungan ---
-DESIRED_LANE_WIDTH_CM = 69.0 # Lebar lajur yang diinginkan dalam cm (misal: 2.8 meter)
+DESIRED_LANE_WIDTH_CM = 123.0 # Lebar lajur yang diinginkan dalam cm (misal: 2.8 meter)
 FUZZY_SYSTEM_NORMAL_JT_CM = 30.0 # Nilai 'normal' untuk jt yang ditargetkan oleh sistem fuzzy (sesuai definisi MF 'n')
 SHARP_CURVE_COEFF_A_THRESHOLD = 0.0004 # Ambang batas untuk koefisien 'a' dari polyfit orde 2 untuk dianggap tikungan tajam
 SHARP_CURVE_ADJUSTMENT_FACTOR = 0.6   # Faktor pengurang offset saat tikungan tajam (target lebih dekat ke dalam)
 
 # --- Konstanta Kalibrasi & Logika ---
-CM_PER_PIXEL = 0.12
+CM_PER_PIXEL = 0.26
 MIN_ROAD_PIXELS_TO_OPERATE = 50
 MAX_FRAMES_EDGE_LOST_FALLBACK = 3
 Y_SAMPLING_START_FACTOR = 1
-Y_SAMPLING_END_FACTOR = 0.5
-Y_REF_FOR_JT_FACTOR = 0.9
+Y_SAMPLING_END_FACTOR = 0.55
+Y_REF_FOR_JT_FACTOR = 0.95
 NUM_Y_WINDOWS_STRAIGHT = 3
 NUM_EDGE_POINTS_CURVE = 7
 TEPI_CLASS_VALUE = 2
@@ -101,10 +109,10 @@ try:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 except NameError:
     script_dir = os.getcwd()
-output_video_filename = "hasil_navigasi_adaptif_stabil.mp4"
+output_video_filename = "hasiluji4.mp4"
 output_video_path = os.path.join(script_dir, output_video_filename)
 video_writer = None
-output_video_fps = 20.0
+output_video_fps = 10
 
 # --- Konstanta Visualisasi ---
 COLOR_SAMPLED_EDGE_POINTS = (255, 200, 100); COLOR_POINTS_FOR_FIT = (0, 255, 0); COLOR_FITTED_LINE = (150, 50, 0)
