@@ -60,8 +60,8 @@ except Exception as e:
 input_size = (384, 224 )
 #input_size = (448, 256 )
 
-INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
-#INPUT_SOURCE = 0
+#INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
+INPUT_SOURCE = 0
 
 cap = cv2.VideoCapture(INPUT_SOURCE)
 if not cap.isOpened():
@@ -94,7 +94,7 @@ SHARP_CURVE_COEFF_A_THRESHOLD = 0.0004 # Ambang batas untuk koefisien 'a' dari p
 SHARP_CURVE_ADJUSTMENT_FACTOR = 0.6   # Faktor pengurang offset saat tikungan tajam (target lebih dekat ke dalam)
 
 # --- Konstanta Kalibrasi & Logika ---
-CM_PER_PIXEL = 0.26
+CM_PER_PIXEL = 0.068
 MIN_ROAD_PIXELS_TO_OPERATE = 50
 MAX_FRAMES_EDGE_LOST_FALLBACK = 3
 Y_SAMPLING_START_FACTOR = 1

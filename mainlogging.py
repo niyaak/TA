@@ -16,10 +16,11 @@ theta = ctrl.Consequent(np.arange(-60, 61, 1), 'theta')
 
 # Membership Functions for JT (Jarak Tepi)
 jt['td'] = fuzz.trapmf(jt.universe, [0, 0, 10, 20])
-jt['ad'] = fuzz.trimf(jt.universe, [15, 22, 30])
-jt['n']  = fuzz.trapmf(jt.universe, [20, 25, 35, 40])
-jt['aj'] = fuzz.trimf(jt.universe, [30, 37, 45])
-jt['tj'] = fuzz.trapmf(jt.universe, [40, 50, 120, 120])
+jt['ad'] = fuzz.trimf(jt.universe, [15, 25, 35])
+jt['n']  = fuzz.trapmf(jt.universe, [30, 35, 50, 55])
+jt['aj'] = fuzz.trimf(jt.universe, [50, 60, 70])
+jt['tj'] = fuzz.trapmf(jt.universe, [65, 75, 120, 120])
+
 
 # Membership Functions for dJT & Theta
 djt['dc'] = fuzz.trapmf(djt.universe, [-20, -20, -12, -8]); djt['dl'] = fuzz.trimf(djt.universe, [-10, -6, -2]); djt['s'] = fuzz.trimf(djt.universe, [-3, 0, 3]); djt['jl'] = fuzz.trimf(djt.universe, [2, 6, 10]); djt['jc'] = fuzz.trapmf(djt.universe, [8, 12, 20, 20])
@@ -47,11 +48,13 @@ fuzzy_sim = ctrl.ControlSystemSimulation(fuzzy_ctrl)
 
 #MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/effnet.keras'
 #MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic1024.keras'
-#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic256.keras'
+MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobileunetv2 (terbaik).keras' #segmentasi paling bagus
 #MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic512.keras'
-MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobileunet.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobilenetv3.keras' #fps paling cepet
 
-#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobilenet2.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobilenet2.keras' 
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/basic5122.keras'
+#MODEL_PATH = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/model/mobilenetv32.keras'
 
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
@@ -63,7 +66,7 @@ except Exception as e:
 input_size = (384, 224 )
 #input_size = (448, 256 )
 
-INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/tes/democpt2.mp4'
+INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/hasilvidio/siang/1.mp4'
 #INPUT_SOURCE = 0
 
 cap = cv2.VideoCapture(INPUT_SOURCE)
@@ -91,13 +94,13 @@ OUTLIER_X_JUMP_THRESHOLD_PX = 60
 OUTLIER_CONFIRMATION_FRAMES = 4
 
 # --- Konstanta untuk Jalur Target & Adaptasi Tikungan ---
-DESIRED_LANE_WIDTH_CM = 123.0
+DESIRED_LANE_WIDTH_CM = 68
 FUZZY_SYSTEM_NORMAL_JT_CM = 30.0
 SHARP_CURVE_COEFF_A_THRESHOLD = 0.0004
 SHARP_CURVE_ADJUSTMENT_FACTOR = 0.6
 
 # --- Konstanta Kalibrasi & Logika ---
-CM_PER_PIXEL = 0.26
+CM_PER_PIXEL = 0.125
 MIN_ROAD_PIXELS_TO_OPERATE = 50
 MAX_FRAMES_EDGE_LOST_FALLBACK = 3
 Y_SAMPLING_START_FACTOR = 1
