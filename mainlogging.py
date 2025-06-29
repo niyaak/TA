@@ -87,9 +87,9 @@ except Exception as e:
 input_size = (384, 224 )
 #input_size = (448, 256 )
 
-INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/hasilvidio/d2/pagi/lurus/2.mp4'
+#INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/hasilvidio/d2/siang/lurus/7.mp4'
 
-#INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/ujicoba/ujividio.mp4'
+INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/hasilvidio/TES/belok/siang/66.mp4'
 #INPUT_SOURCE = 0
 
 cap = cv2.VideoCapture(INPUT_SOURCE)
@@ -130,17 +130,24 @@ Y_SAMPLING_START_FACTOR = 1
 Y_SAMPLING_END_FACTOR = 0.68
 Y_SAMPLING_END_FACTOR_BELOK = 0.8
 Y_REF_FOR_JT_FACTOR = 0.95
-NUM_Y_WINDOWS_STRAIGHT = 5
-NUM_EDGE_POINTS_CURVE = 5
 TEPI_CLASS_VALUE = 2
 
-## NEW: Menambahkan memori untuk validasi konsistensi per jendela ##
-last_known_x_for_windows = [None] * NUM_Y_WINDOWS_STRAIGHT
-PER_WINDOW_X_JUMP_THRESHOLD_PX = 60 # Batas toleransi lompatan piksel untuk satu jendela (bisa di-tuning)
+# --- Untuk Jalan LURUS (5 Titik) ---
+NUM_Y_WINDOWS_STRAIGHT = 5
+PER_WINDOW_X_JUMP_THRESHOLD_PX_LURUS = 60
+MIN_POINTS_FOR_STABLE_LINE_LURUS = 2
+MIN_POINTS_FOR_RESET_CONSENSUS_LURUS = 3
 
-## NEW: Konstanta tuning untuk logika konsensus 8 titik ##
-MIN_POINTS_FOR_STABLE_LINE = 2    # Minimal titik stabil yg dibutuhkan utk membentuk garis normal
-MIN_POINTS_FOR_RESET_CONSENSUS = 3  # Minimal total titik (stabil + anomali) yg dibutuhkan utk memicu reset memori
+# --- Untuk Jalan BELOK (6 Titik) ---
+NUM_EDGE_POINTS_CURVE = 6
+PER_WINDOW_X_JUMP_THRESHOLD_PX_BELOK = 70  # Lebih longgar
+MIN_POINTS_FOR_STABLE_LINE_BELOK = 3     
+MIN_POINTS_FOR_RESET_CONSENSUS_BELOK = 3 
+
+# --- Inisialisasi Memori TERPISAH untuk setiap mode ---
+last_known_x_lurus = [None] * NUM_Y_WINDOWS_STRAIGHT
+last_known_x_belok = [None] * NUM_EDGE_POINTS_CURVE
+
 
 # --- NEW: Folder & Penamaan File Output Setup ---
 try:
@@ -290,96 +297,107 @@ while True:
             y_sampling_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR)
 
         if y_sampling_start_abs > y_sampling_end_abs:
+            
             if current_gps_navigation_mode == "LURUS":
+                # --------------------------------------------------
+                # ## BLOK UNTUK LURUS (5 Titik)
+                # --------------------------------------------------
+                y_sampling_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR)
                 
-                ## MODIFIED V3: Logika Konsensus Mayoritas Kuat untuk 8 Titik ##
-                
+                # 1. Kumpulkan kandidat titik
                 candidate_points = []
-                num_windows = NUM_Y_WINDOWS_STRAIGHT
-                y_window_boundaries = np.linspace(y_sampling_end_abs, y_sampling_start_abs, num_windows + 1, dtype=int)
-                
-                # Tahap 1: Kumpulkan semua kandidat titik yang ditemukan
-                for i in range(num_windows):
-                    # ... (logika pencarian 'best_x_in_window' di dalam setiap jendela tetap sama) ...
-                    win_y_top = y_window_boundaries[i]; win_y_bottom = y_window_boundaries[i+1]
-                    if win_y_bottom < win_y_top: continue
+                y_window_boundaries = np.linspace(y_sampling_end_abs, orig_h, NUM_Y_WINDOWS_STRAIGHT + 1, dtype=int)
+                for i in range(NUM_Y_WINDOWS_STRAIGHT):
+                    win_y_top = y_window_boundaries[i+1]; win_y_bottom = y_window_boundaries[i]
                     best_x_in_window = -1; y_for_best_x_in_window = -1
-                    for y_h in range(win_y_bottom, win_y_top - 1, -1):
-                        if y_h < 0 or y_h >= orig_h: continue
+                    for y_h in range(win_y_top - 1, win_y_bottom - 1, -1):
                         x_edge = get_rightmost_edge_pixel_on_row(mask_resized_to_orig, y_h, center_x_frame)
-                        if x_edge is not None:
-                            if x_edge > best_x_in_window:
-                                best_x_in_window = x_edge; y_for_best_x_in_window = y_h
-                    
+                        if x_edge is not None and x_edge > best_x_in_window:
+                            best_x_in_window = x_edge; y_for_best_x_in_window = y_h
                     if best_x_in_window != -1:
-                        candidate_points.append({'x': best_x_in_window, 'y': y_for_best_x_in_window, 'window_idx': i})
+                        candidate_points.append({'x': best_x_in_window, 'y': y_for_best_x_in_window, 'idx': i})
 
-                # Tahap 2: Klasifikasikan titik menjadi 'stabil' atau 'maverick' (anomali)
-                stable_points = []
-                maverick_points = []
-
+                # 2. Klasifikasikan titik
+                stable_points = []; maverick_points = []
                 for point in candidate_points:
-                    idx = point['window_idx']
+                    idx = point['idx']
                     is_stable = False
-                    
-                    if last_known_x_for_windows[idx] is not None:
-                        x_difference = abs(point['x'] - last_known_x_for_windows[idx])
-                        if x_difference < PER_WINDOW_X_JUMP_THRESHOLD_PX:
+                    if last_known_x_lurus[idx] is not None:
+                        if abs(point['x'] - last_known_x_lurus[idx]) < PER_WINDOW_X_JUMP_THRESHOLD_PX_LURUS:
                             is_stable = True
                     else:
-                        is_stable = True # Anggap stabil jika belum ada memori
-                    
-                    if is_stable:
-                        stable_points.append(point)
-                    else:
-                        maverick_points.append(point)
+                        is_stable = True
+                    if is_stable: stable_points.append(point)
+                    else: maverick_points.append(point)
                 
-                # Tahap 3: Logika Keputusan Berdasarkan Konsensus
+                # 3. Keputusan Konsensus
                 final_points_to_use = []
-
-                # Kondisi 1: Jika grup stabil cukup kuat, kita percaya pada mereka.
-                if len(stable_points) >= MIN_POINTS_FOR_STABLE_LINE:
+                if len(stable_points) >= MIN_POINTS_FOR_STABLE_LINE_LURUS:
                     final_points_to_use = stable_points
-                    # Opsi: Anda bisa mencoba "menyelamatkan" maverick point yg dekat dgn garis yg dibentuk oleh stable_points
+                elif len(candidate_points) >= MIN_POINTS_FOR_RESET_CONSENSUS_LURUS:
+                    final_points_to_use = candidate_points
                 
-                # Kondisi 2: Jika grup stabil lemah, TAPI total titik yang ditemukan membentuk mayoritas kuat, lakukan RESET.
-                elif len(candidate_points) >= MIN_POINTS_FOR_RESET_CONSENSUS:
-                    final_points_to_use = candidate_points # Gunakan semua titik yang ditemukan
-                
-                # Kondisi 3: Jika tidak ada cukup bukti, jangan buat garis.
-                else:
-                    final_points_to_use = [] # Biarkan kosong, akan memicu "Tepi Hilang"
-                
-
-                # Tahap 4: Gunakan titik-titik final dan perbarui memori
-                valid_points_x = []
-                valid_points_y = []
-
+                # 4. Gunakan titik & update memori
+                valid_points_x = []; valid_points_y = []
                 for point in final_points_to_use:
-                    valid_points_x.append(point['x'])
-                    valid_points_y.append(point['y'])
-                    # Selalu perbarui memori dengan data terakhir yang kita percayai
-                    last_known_x_for_windows[point['window_idx']] = point['x']
-
-                edge_points_x_to_fit = valid_points_x
-                edge_points_y_to_fit = valid_points_y
-
-                if len(edge_points_x_to_fit) >= 2:
-                    poly_func = fit_line_or_curve(edge_points_x_to_fit, edge_points_y_to_fit, "LURUS")
+                    valid_points_x.append(point['x']); valid_points_y.append(point['y'])
+                    last_known_x_lurus[point['idx']] = point['x']
+                
+                if len(valid_points_x) >= 2:
+                    poly_func = fit_line_or_curve(valid_points_x, valid_points_y, "LURUS")
+                    edge_points_x_for_fitting_vis, edge_points_y_for_fitting_vis = valid_points_x, valid_points_y
 
             elif "BELOK" in current_gps_navigation_mode:
-                y_horizons = np.linspace(y_sampling_start_abs, y_sampling_end_abs, NUM_EDGE_POINTS_CURVE, dtype=int)
-                for y_h in y_horizons:
+                # --------------------------------------------------
+                # ## BLOK UNTUK BELOK (6 Titik)
+                # --------------------------------------------------
+                y_sampling_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR_BELOK)
+                
+                # 1. Kumpulkan kandidat titik
+                candidate_points = []
+                y_horizons = np.linspace(y_sampling_end_abs, orig_h, NUM_EDGE_POINTS_CURVE, dtype=int)
+                for i, y_h in enumerate(y_horizons):
                     x_edge = get_rightmost_edge_pixel_on_row(mask_resized_to_orig, y_h, center_x_frame)
-                    if x_edge is not None: edge_points_x_to_fit.append(x_edge); edge_points_y_to_fit.append(y_h)
-                if len(edge_points_x_to_fit) >= 3: poly_func = fit_line_or_curve(edge_points_x_to_fit, edge_points_y_to_fit, "BELOK")
+                    if x_edge is not None:
+                        candidate_points.append({'x': x_edge, 'y': y_h, 'idx': i})
+                
+                # 2. Klasifikasikan titik
+                stable_points = []; maverick_points = []
+                for point in candidate_points:
+                    idx = point['idx']
+                    is_stable = False
+                    if last_known_x_belok[idx] is not None:
+                        if abs(point['x'] - last_known_x_belok[idx]) < PER_WINDOW_X_JUMP_THRESHOLD_PX_BELOK:
+                            is_stable = True
+                    else:
+                        is_stable = True
+                    if is_stable: stable_points.append(point)
+                    else: maverick_points.append(point)
 
+                # 3. Keputusan Konsensus
+                final_points_to_use = []
+                if len(stable_points) >= MIN_POINTS_FOR_STABLE_LINE_BELOK:
+                    final_points_to_use = stable_points
+                elif len(candidate_points) >= MIN_POINTS_FOR_RESET_CONSENSUS_BELOK:
+                    final_points_to_use = candidate_points
+                
+                # 4. Gunakan titik & update memori
+                valid_points_x = []; valid_points_y = []
+                for point in final_points_to_use:
+                    valid_points_x.append(point['x']); valid_points_y.append(point['y'])
+                    last_known_x_belok[point['idx']] = point['x']
+
+                # Minimal 3 titik untuk membuat kurva
+                if len(valid_points_x) >= 3:
+                    poly_func = fit_line_or_curve(valid_points_x, valid_points_y, "BELOK")
+                    edge_points_x_for_fitting_vis, edge_points_y_for_fitting_vis = valid_points_x, valid_points_y
+                    
         if poly_func is not None:
             found_edge_for_fitting = True
             frames_edge_lost_counter = 0
             poly_func_for_vis = poly_func
-            edge_points_x_for_fitting_vis = list(edge_points_x_to_fit)
-            edge_points_y_for_fitting_vis = list(edge_points_y_to_fit)
+           # edge_points_x_for_fitting_vis = list(edge_points_x_to_fit)
+           # edge_points_y_for_fitting_vis = list(edge_points_y_to_fit)
             y_ref_for_jt_abs = int(orig_h * Y_REF_FOR_JT_FACTOR)
 
             is_detection_valid_this_frame = True
