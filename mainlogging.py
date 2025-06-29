@@ -12,7 +12,7 @@ from datetime import datetime # <-- Tambahkan import ini
 # ====== Fuzzy Variable Definitions ======
 jt = ctrl.Antecedent(np.arange(0, 121, 1), 'jt')
 djt = ctrl.Antecedent(np.arange(-20, 21, 1), 'djt')
-theta = ctrl.Consequent(np.arange(-60, 61, 1), 'theta')
+theta = ctrl.Consequent(np.arange(-45, 46, 1), 'theta')
 
 # Membership Functions for JT (Jarak Tepi)
 jt['td'] = fuzz.trapmf(jt.universe, [0, 0, 10, 20])
@@ -23,25 +23,46 @@ jt['tj'] = fuzz.trapmf(jt.universe, [65, 75, 120, 120])
 
 
 # Membership Functions for dJT & Theta
-djt['dc'] = fuzz.trapmf(djt.universe, [-20, -20, -12, -8]); djt['dl'] = fuzz.trimf(djt.universe, [-10, -6, -2]); djt['s'] = fuzz.trimf(djt.universe, [-3, 0, 3]); djt['jl'] = fuzz.trimf(djt.universe, [2, 6, 10]); djt['jc'] = fuzz.trapmf(djt.universe, [8, 12, 20, 20])
-theta['krt'] = fuzz.trapmf(theta.universe, [-60, -60, -50, -40]); theta['krs'] = fuzz.trimf(theta.universe, [-45, -30, -15]); theta['krr'] = fuzz.trimf(theta.universe, [-20, -10, -2]); theta['l'] = fuzz.trimf(theta.universe, [-5, 0, 5]); theta['knr'] = fuzz.trimf(theta.universe, [2, 10, 20]); theta['kns'] = fuzz.trimf(theta.universe, [15, 30, 45]); theta['knt'] = fuzz.trapmf(theta.universe, [40, 50, 60, 60])
+djt['dc'] = fuzz.trapmf(djt.universe, [-20, -20, -12, -8])
+djt['dl'] = fuzz.trimf(djt.universe, [-10, -6, -2]); djt['s'] = fuzz.trimf(djt.universe, [-3, 0, 3])
+djt['jl'] = fuzz.trimf(djt.universe, [2, 6, 10])
+djt['jc'] = fuzz.trapmf(djt.universe, [8, 12, 20, 20])
+
+
+theta['krt'] = fuzz.trapmf(theta.universe, [-45, -45, -35, -25])     # Kiri Tajam
+theta['krs'] = fuzz.trimf(theta.universe, [-30, -22, -14])           # Kiri Sedang
+theta['krr'] = fuzz.trimf(theta.universe, [-18, -10, -2])            # Kiri Ringan
+theta['l']   = fuzz.trimf(theta.universe, [-5, 0, 5])                # Lurus
+theta['knr'] = fuzz.trimf(theta.universe, [2, 10, 18])               # Kanan Ringan
+theta['kns'] = fuzz.trimf(theta.universe, [14, 22, 30])              # Kanan Sedang
+theta['knt'] = fuzz.trapmf(theta.universe, [25, 35, 45, 45])         # Kanan Tajam
 
 rules = [
-    ctrl.Rule(jt['td'] & djt['dc'], theta['krt']), ctrl.Rule(jt['td'] & djt['dl'], theta['krs']),
-    ctrl.Rule(jt['td'] & djt['s'], theta['krr']), ctrl.Rule(jt['td'] & djt['jl'], theta['l']),
+    ctrl.Rule(jt['td'] & djt['dc'], theta['knt']), 
+    ctrl.Rule(jt['td'] & djt['dl'], theta['kns']),
+    ctrl.Rule(jt['td'] & djt['s'], theta['kns']), 
+    ctrl.Rule(jt['td'] & djt['jl'], theta['knr']),
     ctrl.Rule(jt['td'] & djt['jc'], theta['knr']),
-    ctrl.Rule(jt['ad'] & djt['dc'], theta['krs']), ctrl.Rule(jt['ad'] & djt['dl'], theta['krr']),
-    ctrl.Rule(jt['ad'] & djt['s'], theta['krr']), ctrl.Rule(jt['ad'] & djt['jl'], theta['l']),
-    ctrl.Rule(jt['ad'] & djt['jc'], theta['knr']),
-    ctrl.Rule(jt['n'] & djt['dc'], theta['krr']), ctrl.Rule(jt['n'] & djt['dl'], theta['krr']),
-    ctrl.Rule(jt['n'] & djt['s'], theta['l']), ctrl.Rule(jt['n'] & djt['jl'], theta['knr']),
-    ctrl.Rule(jt['n'] & djt['jc'], theta['knr']),
-    ctrl.Rule(jt['aj'] & djt['dc'], theta['l']), ctrl.Rule(jt['aj'] & djt['dl'], theta['l']),
-    ctrl.Rule(jt['aj'] & djt['s'], theta['knr']), ctrl.Rule(jt['aj'] & djt['jl'], theta['kns']),
-    ctrl.Rule(jt['aj'] & djt['jc'], theta['knt']),
-    ctrl.Rule(jt['tj'] & djt['dc'], theta['krr']), ctrl.Rule(jt['tj'] & djt['dl'], theta['l']),
-    ctrl.Rule(jt['tj'] & djt['s'], theta['knt']), ctrl.Rule(jt['tj'] & djt['jl'], theta['knt']),
-    ctrl.Rule(jt['tj'] & djt['jc'], theta['knt']),
+    ctrl.Rule(jt['ad'] & djt['dc'], theta['kns']), 
+    ctrl.Rule(jt['ad'] & djt['dl'], theta['knr']),
+    ctrl.Rule(jt['ad'] & djt['s'], theta['knr']), 
+    ctrl.Rule(jt['ad'] & djt['jl'], theta['l']),
+    ctrl.Rule(jt['ad'] & djt['jc'], theta['l']),
+    ctrl.Rule(jt['n'] & djt['dc'], theta['l']), 
+    ctrl.Rule(jt['n'] & djt['dl'], theta['l']),
+    ctrl.Rule(jt['n'] & djt['s'], theta['l']), 
+    ctrl.Rule(jt['n'] & djt['jl'], theta['l']),
+    ctrl.Rule(jt['n'] & djt['jc'], theta['l']),
+    ctrl.Rule(jt['aj'] & djt['dc'], theta['l']), 
+    ctrl.Rule(jt['aj'] & djt['dl'], theta['l']),
+    ctrl.Rule(jt['aj'] & djt['s'], theta['krr']), 
+    ctrl.Rule(jt['aj'] & djt['jl'], theta['krr']),
+    ctrl.Rule(jt['aj'] & djt['jc'], theta['krs']),
+    ctrl.Rule(jt['tj'] & djt['dc'], theta['krr']), 
+    ctrl.Rule(jt['tj'] & djt['dl'], theta['krr']),
+    ctrl.Rule(jt['tj'] & djt['s'], theta['krs']), 
+    ctrl.Rule(jt['tj'] & djt['jl'], theta['krs']),
+    ctrl.Rule(jt['tj'] & djt['jc'], theta['krt']),
 ]
 fuzzy_ctrl = ctrl.ControlSystem(rules)
 fuzzy_sim = ctrl.ControlSystemSimulation(fuzzy_ctrl)
@@ -66,7 +87,9 @@ except Exception as e:
 input_size = (384, 224 )
 #input_size = (448, 256 )
 
-INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/hasilvidio/siang/1.mp4'
+INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/hasilvidio/d2/pagi/lurus/2.mp4'
+
+#INPUT_SOURCE = 'D:/Documents/guekece/TUGAS AKHIR/koding/segmentasi/vidio/ujicoba/ujividio.mp4'
 #INPUT_SOURCE = 0
 
 cap = cv2.VideoCapture(INPUT_SOURCE)
@@ -90,25 +113,34 @@ theta_history = deque(maxlen=THETA_SMOOTHING_WINDOW_SIZE)
 # Variabel untuk validasi konsistensi tepi jalan
 last_stable_reference_x = None
 outlier_detection_counter = 0
-OUTLIER_X_JUMP_THRESHOLD_PX = 60
-OUTLIER_CONFIRMATION_FRAMES = 4
+OUTLIER_X_JUMP_THRESHOLD_PX = 80
+OUTLIER_CONFIRMATION_FRAMES = 3
 
 # --- Konstanta untuk Jalur Target & Adaptasi Tikungan ---
-DESIRED_LANE_WIDTH_CM = 68
+DESIRED_LANE_WIDTH_CM = 65
 FUZZY_SYSTEM_NORMAL_JT_CM = 30.0
 SHARP_CURVE_COEFF_A_THRESHOLD = 0.0004
 SHARP_CURVE_ADJUSTMENT_FACTOR = 0.6
 
 # --- Konstanta Kalibrasi & Logika ---
-CM_PER_PIXEL = 0.125
-MIN_ROAD_PIXELS_TO_OPERATE = 50
+CM_PER_PIXEL = 0.13
+MIN_ROAD_PIXELS_TO_OPERATE = 60
 MAX_FRAMES_EDGE_LOST_FALLBACK = 3
 Y_SAMPLING_START_FACTOR = 1
-Y_SAMPLING_END_FACTOR = 0.55
+Y_SAMPLING_END_FACTOR = 0.68
+Y_SAMPLING_END_FACTOR_BELOK = 0.8
 Y_REF_FOR_JT_FACTOR = 0.95
-NUM_Y_WINDOWS_STRAIGHT = 3
-NUM_EDGE_POINTS_CURVE = 7
+NUM_Y_WINDOWS_STRAIGHT = 5
+NUM_EDGE_POINTS_CURVE = 5
 TEPI_CLASS_VALUE = 2
+
+## NEW: Menambahkan memori untuk validasi konsistensi per jendela ##
+last_known_x_for_windows = [None] * NUM_Y_WINDOWS_STRAIGHT
+PER_WINDOW_X_JUMP_THRESHOLD_PX = 60 # Batas toleransi lompatan piksel untuk satu jendela (bisa di-tuning)
+
+## NEW: Konstanta tuning untuk logika konsensus 8 titik ##
+MIN_POINTS_FOR_STABLE_LINE = 2    # Minimal titik stabil yg dibutuhkan utk membentuk garis normal
+MIN_POINTS_FOR_RESET_CONSENSUS = 3  # Minimal total titik (stabil + anomali) yg dibutuhkan utk memicu reset memori
 
 # --- NEW: Folder & Penamaan File Output Setup ---
 try:
@@ -155,14 +187,16 @@ COLOR_SAMPLED_EDGE_POINTS = (255, 200, 100); COLOR_POINTS_FOR_FIT = (0, 255, 0);
 RADIUS_SAMPLED_POINTS = 3; RADIUS_POINTS_FOR_FIT = 5; THICKNESS_FITTED_LINE = 2
 COLOR_TARGET_PATH = (0, 255, 112)
 
+
 def get_steering_decision_text(theta_value):
-    if theta_value < -35: return "KANAN TAJAM"
-    elif theta_value < -20: return "KANAN SEDANG"
-    elif theta_value < -3: return "KANAN RINGAN"
-    elif theta_value <= 3: return "LURUS"
-    elif theta_value <= 20: return "KIRI RINGAN"
-    elif theta_value <= 35: return "KIRI SEDANG"
-    else: return "KIRI TAJAM"
+    if theta_value < -35: return "KIRI TAJAM"
+    elif theta_value < -22: return "KIRI SEDANG"
+    elif theta_value < -5: return "KIRI RINGAN"
+    elif theta_value <= 5: return "LURUS"
+    elif theta_value <= 14: return "KANAN RINGAN"
+    elif theta_value <= 25: return "KANAN SEDANG"
+    else: return "KANAN TAJAM"
+
 
 def get_rightmost_edge_pixel_on_row(mask_segment, y_row, center_x):
     if y_row < 0 or y_row >= mask_segment.shape[0]: return None
@@ -243,18 +277,30 @@ while True:
 
     if np.sum(mask_resized_to_orig == TEPI_CLASS_VALUE) < MIN_ROAD_PIXELS_TO_OPERATE:
         raw_theta_output = 0.0; core_decision_for_this_frame = "LURUS"
-        status_info_for_decision = "(TEPI SANGAT MINIM/HILANG!)"
+        status_info_for_decision = "(TEPI HILANG!)"
         frames_edge_lost_counter = 0; prev_jt_cm_for_djt_calc = None
     else:
         edge_points_x_to_fit = []; edge_points_y_to_fit = []
         poly_func = None; found_edge_for_fitting = False
         y_sampling_start_abs = int(orig_h * Y_SAMPLING_START_FACTOR)
-        y_sampling_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR)
+
+        if current_gps_navigation_mode == "BELOK":
+            y_sampling_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR_BELOK)
+        else: # Default to LURUS
+            y_sampling_end_abs = int(orig_h * Y_SAMPLING_END_FACTOR)
 
         if y_sampling_start_abs > y_sampling_end_abs:
             if current_gps_navigation_mode == "LURUS":
-                num_windows = NUM_Y_WINDOWS_STRAIGHT; y_window_boundaries = np.linspace(y_sampling_end_abs, y_sampling_start_abs, num_windows + 1, dtype=int)
+                
+                ## MODIFIED V3: Logika Konsensus Mayoritas Kuat untuk 8 Titik ##
+                
+                candidate_points = []
+                num_windows = NUM_Y_WINDOWS_STRAIGHT
+                y_window_boundaries = np.linspace(y_sampling_end_abs, y_sampling_start_abs, num_windows + 1, dtype=int)
+                
+                # Tahap 1: Kumpulkan semua kandidat titik yang ditemukan
                 for i in range(num_windows):
+                    # ... (logika pencarian 'best_x_in_window' di dalam setiap jendela tetap sama) ...
                     win_y_top = y_window_boundaries[i]; win_y_bottom = y_window_boundaries[i+1]
                     if win_y_bottom < win_y_top: continue
                     best_x_in_window = -1; y_for_best_x_in_window = -1
@@ -262,9 +308,65 @@ while True:
                         if y_h < 0 or y_h >= orig_h: continue
                         x_edge = get_rightmost_edge_pixel_on_row(mask_resized_to_orig, y_h, center_x_frame)
                         if x_edge is not None:
-                            if x_edge > best_x_in_window: best_x_in_window = x_edge; y_for_best_x_in_window = y_h
-                    if best_x_in_window != -1: edge_points_x_to_fit.append(best_x_in_window); edge_points_y_to_fit.append(y_for_best_x_in_window)
-                if len(edge_points_x_to_fit) >= 2: poly_func = fit_line_or_curve(edge_points_x_to_fit, edge_points_y_to_fit, "LURUS")
+                            if x_edge > best_x_in_window:
+                                best_x_in_window = x_edge; y_for_best_x_in_window = y_h
+                    
+                    if best_x_in_window != -1:
+                        candidate_points.append({'x': best_x_in_window, 'y': y_for_best_x_in_window, 'window_idx': i})
+
+                # Tahap 2: Klasifikasikan titik menjadi 'stabil' atau 'maverick' (anomali)
+                stable_points = []
+                maverick_points = []
+
+                for point in candidate_points:
+                    idx = point['window_idx']
+                    is_stable = False
+                    
+                    if last_known_x_for_windows[idx] is not None:
+                        x_difference = abs(point['x'] - last_known_x_for_windows[idx])
+                        if x_difference < PER_WINDOW_X_JUMP_THRESHOLD_PX:
+                            is_stable = True
+                    else:
+                        is_stable = True # Anggap stabil jika belum ada memori
+                    
+                    if is_stable:
+                        stable_points.append(point)
+                    else:
+                        maverick_points.append(point)
+                
+                # Tahap 3: Logika Keputusan Berdasarkan Konsensus
+                final_points_to_use = []
+
+                # Kondisi 1: Jika grup stabil cukup kuat, kita percaya pada mereka.
+                if len(stable_points) >= MIN_POINTS_FOR_STABLE_LINE:
+                    final_points_to_use = stable_points
+                    # Opsi: Anda bisa mencoba "menyelamatkan" maverick point yg dekat dgn garis yg dibentuk oleh stable_points
+                
+                # Kondisi 2: Jika grup stabil lemah, TAPI total titik yang ditemukan membentuk mayoritas kuat, lakukan RESET.
+                elif len(candidate_points) >= MIN_POINTS_FOR_RESET_CONSENSUS:
+                    final_points_to_use = candidate_points # Gunakan semua titik yang ditemukan
+                
+                # Kondisi 3: Jika tidak ada cukup bukti, jangan buat garis.
+                else:
+                    final_points_to_use = [] # Biarkan kosong, akan memicu "Tepi Hilang"
+                
+
+                # Tahap 4: Gunakan titik-titik final dan perbarui memori
+                valid_points_x = []
+                valid_points_y = []
+
+                for point in final_points_to_use:
+                    valid_points_x.append(point['x'])
+                    valid_points_y.append(point['y'])
+                    # Selalu perbarui memori dengan data terakhir yang kita percayai
+                    last_known_x_for_windows[point['window_idx']] = point['x']
+
+                edge_points_x_to_fit = valid_points_x
+                edge_points_y_to_fit = valid_points_y
+
+                if len(edge_points_x_to_fit) >= 2:
+                    poly_func = fit_line_or_curve(edge_points_x_to_fit, edge_points_y_to_fit, "LURUS")
+
             elif "BELOK" in current_gps_navigation_mode:
                 y_horizons = np.linspace(y_sampling_start_abs, y_sampling_end_abs, NUM_EDGE_POINTS_CURVE, dtype=int)
                 for y_h in y_horizons:
@@ -293,7 +395,7 @@ while True:
                         outlier_detection_counter += 1
                         if outlier_detection_counter < OUTLIER_CONFIRMATION_FRAMES:
                             is_detection_valid_this_frame = False
-                            status_info_for_decision = f"(Anomali Tepi! Menunggu {outlier_detection_counter}/{OUTLIER_CONFIRMATION_FRAMES})"
+                            status_info_for_decision = f"(Anomali Tepi! {outlier_detection_counter}/{OUTLIER_CONFIRMATION_FRAMES})"
                         else:
                             last_stable_reference_x = potential_reference_x
                             outlier_detection_counter = 0
@@ -347,7 +449,7 @@ while True:
                     if not status_info_for_decision:
                         status_info_for_decision = f"(Ref: {'Garis(F)' if current_gps_navigation_mode == 'LURUS' else 'Kurva'})"
                     if is_sharp_curve_detected:
-                        status_info_for_decision += " (Tikungan Tajam!)"
+                        status_info_for_decision += " (Tikungan Tajam)"
                     display_jt_cm = f"{measured_jt_cm:.1f}"
                     display_djt_cm = f"{djt_cm_val:.1f}"
                     show_jt_reference_marker = True
@@ -364,7 +466,7 @@ while True:
             
             frames_edge_lost_counter += 1
             if frames_edge_lost_counter <= MAX_FRAMES_EDGE_LOST_FALLBACK:
-                status_info_for_decision = f"(TEPI HILANG SEMENTARA ({frames_edge_lost_counter}))"
+                status_info_for_decision = f"(TEPI HILANG ({frames_edge_lost_counter}))"
             else:
                 raw_theta_output = 0.0; core_decision_for_this_frame = "LURUS"
                 status_info_for_decision = "(NAVIGASI PETA (GPS) AKTIF)"
